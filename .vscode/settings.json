@@ -1,0 +1,10 @@
+{
+    "cSpell.words": [
+        "actix",
+        "rowid",
+        "sqlx"
+    ],
+    "rust-analyzer.linkedProjects": [
+        ".\\Cargo.toml"
+    ]
+}
