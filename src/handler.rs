@@ -2,8 +2,8 @@ use actix_web::{get, post, web, HttpResponse, Responder};
 use sqlx::SqlitePool;
 
 use crate::{
-    db::{get_categories, get_directions, get_enters, get_exits},
-    model::{EntersRequest, ExitsRequest},
+    db::{calculate_tolls, get_categories, get_directions, get_enters, get_exits},
+    model::{ApiErrors, EntersRequest, ExitsRequest, TollsRequest},
 };
 
 #[get("/version")]
@@ -35,12 +35,25 @@ async fn categories(db: web::Data<SqlitePool>) -> impl Responder {
     HttpResponse::Ok().json(result.await.unwrap())
 }
 
+#[post("/tolls")]
+async fn tolls(request: web::Json<TollsRequest>, db: web::Data<SqlitePool>) -> impl Responder {
+    let result = calculate_tolls(request.0, &db);
+    match result.await {
+        Ok(tolls_result) => HttpResponse::Ok().json(tolls_result),
+        Err(e) => match e {
+            ApiErrors::ValidationError(msg) => HttpResponse::BadRequest().body(msg).into(),
+            _ => HttpResponse::InternalServerError().into(),
+        },
+    }
+}
+
 pub fn config(conf: &mut web::ServiceConfig) {
     let scope = web::scope("/api")
         .service(version)
         .service(enters)
         .service(directions)
         .service(categories)
+        .service(tolls)
         .service(exits);
 
     conf.service(scope);
