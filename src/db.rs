@@ -1,8 +1,7 @@
-use actix_web::HttpResponse;
 use sqlx::{sqlite::SqliteRow, Pool, Row, Sqlite};
 
 use crate::model::{
-    ApiErrors, CategoriesResponse, DirectionsResponse, FrontalStation, TollsRequest,
+    ApiErrors, CategoriesResponse, DirectionsResponse, FrontalStation, TollsCost, TollsRequest,
 };
 
 pub async fn get_enters(direction: u8, db: &Pool<Sqlite>) -> Result<Vec<String>, sqlx::Error> {
@@ -48,7 +47,7 @@ pub async fn get_categories(db: &Pool<Sqlite>) -> Result<Vec<CategoriesResponse>
 pub async fn calculate_tolls(
     request: TollsRequest,
     db: &Pool<Sqlite>,
-) -> Result<String, ApiErrors> {
+) -> Result<Vec<TollsCost>, ApiErrors> {
     // Check if Enter is valid
     let row = sqlx::query("SELECT * FROM stations WHERE name = ?")
         .bind(&request.enter)
@@ -140,18 +139,123 @@ pub async fn calculate_tolls(
         }
     }
 
+    let mut tolls_cost: Vec<TollsCost> = vec![];
+
+    // Add cost for enter
+    let row = sqlx::query(
+        "SELECT * FROM prices WHERE station_id = ? AND direction_id = ? AND enter_or_exit = ?",
+    )
+    .bind(&enter_id)
+    .bind(&request.direction)
+    .bind(0)
+    .fetch_one(db)
+    .await;
+
+    let result =
+        row.map_err(|_| ApiErrors::ValidationError("Price not found. Check DB.".to_string()))?;
+
+    let price: f32 = match request.category {
+        1 => result.get("cat_1"),
+        2 => result.get("cat_2"),
+        3 => result.get("cat_3"),
+        4 => result.get("cat_4"),
+        _ => unreachable!(),
+    };
+
+    if price != 0.0 {
+        tolls_cost.push(TollsCost {
+            station: request.enter,
+            cost: price,
+        })
+    }
+
     // Calculate frontal stations between enter and exit
     let frontal_stations = sqlx::query_as::<_, FrontalStation>("SELECT * FROM frontal_stations")
         .fetch_all(db)
         .await
         .unwrap();
 
-    for fs in frontal_stations {
-        println!("{}", fs.name);
-        println!("{}", fs.cat_2);
-        println!("{}", fs.between_station_1);
-        println!("{}", fs.between_station_2);
+    match request.direction {
+        1 => {
+            for fs in frontal_stations {
+                if enter_order <= fs.between_station_1 && exit_order >= fs.between_station_2 {
+                    match request.category {
+                        1 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_1,
+                        }),
+                        2 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_2,
+                        }),
+                        3 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_3,
+                        }),
+                        4 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_4,
+                        }),
+                        _ => unreachable!(),
+                    };
+                }
+            }
+        }
+        2 => {
+            for fs in frontal_stations {
+                if enter_order >= fs.between_station_1 && exit_order <= fs.between_station_2 {
+                    match request.category {
+                        1 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_1,
+                        }),
+                        2 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_2,
+                        }),
+                        3 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_3,
+                        }),
+                        4 => tolls_cost.push(TollsCost {
+                            station: fs.name,
+                            cost: fs.cat_4,
+                        }),
+                        _ => unreachable!(),
+                    };
+                }
+            }
+        }
+        _ => unreachable!(),
     }
 
-    Ok("success".to_string())
+    // Add cost for exit
+    let row = sqlx::query(
+        "SELECT * FROM prices WHERE station_id = ? AND direction_id = ? AND enter_or_exit = ?",
+    )
+    .bind(&exit_id)
+    .bind(&request.direction)
+    .bind(1)
+    .fetch_one(db)
+    .await;
+
+    let result =
+        row.map_err(|_| ApiErrors::ValidationError("Price not found. Check DB.".to_string()))?;
+
+    let price: f32 = match request.category {
+        1 => result.get("cat_1"),
+        2 => result.get("cat_2"),
+        3 => result.get("cat_3"),
+        4 => result.get("cat_4"),
+        _ => unreachable!(),
+    };
+
+    if price != 0.0 {
+        tolls_cost.push(TollsCost {
+            station: request.exit,
+            cost: price,
+        })
+    }
+
+    Ok(tolls_cost)
 }

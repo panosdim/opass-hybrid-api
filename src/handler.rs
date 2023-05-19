@@ -42,7 +42,6 @@ async fn tolls(request: web::Json<TollsRequest>, db: web::Data<SqlitePool>) -> i
         Ok(tolls_result) => HttpResponse::Ok().json(tolls_result),
         Err(e) => match e {
             ApiErrors::ValidationError(msg) => HttpResponse::BadRequest().body(msg).into(),
-            _ => HttpResponse::InternalServerError().into(),
         },
     }
 }

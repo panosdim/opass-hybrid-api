@@ -33,7 +33,6 @@ pub struct TollsRequest {
 
 pub enum ApiErrors {
     ValidationError(String),
-    ExitNotValid(String),
 }
 
 #[derive(Deserialize, FromRow)]
@@ -46,4 +45,10 @@ pub struct FrontalStation {
     pub cat_4: f32,
     pub between_station_1: i64,
     pub between_station_2: i64,
+}
+
+#[derive(Serialize)]
+pub struct TollsCost {
+    pub station: String,
+    pub cost: f32,
 }
