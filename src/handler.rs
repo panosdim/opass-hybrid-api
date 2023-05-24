@@ -19,8 +19,14 @@ async fn enters(request: web::Json<EntersRequest>, db: web::Data<SqlitePool>) ->
 
 #[post("/exits")]
 async fn exits(request: web::Json<ExitsRequest>, db: web::Data<SqlitePool>) -> impl Responder {
-    let result = get_exits(request.direction, &db);
-    HttpResponse::Ok().json(result.await.unwrap())
+    let result = get_exits(request.0, &db);
+    match result.await {
+        Ok(exits_result) => HttpResponse::Ok().json(exits_result),
+        Err(e) => match e {
+            ApiErrors::ValidationError(msg) => HttpResponse::BadRequest().body(msg).into(),
+            ApiErrors::SqlError(msg) => HttpResponse::InternalServerError().body(msg).into(),
+        },
+    }
 }
 
 #[get("/directions")]
@@ -42,6 +48,7 @@ async fn tolls(request: web::Json<TollsRequest>, db: web::Data<SqlitePool>) -> i
         Ok(tolls_result) => HttpResponse::Ok().json(tolls_result),
         Err(e) => match e {
             ApiErrors::ValidationError(msg) => HttpResponse::BadRequest().body(msg).into(),
+            ApiErrors::SqlError(msg) => HttpResponse::InternalServerError().body(msg).into(),
         },
     }
 }

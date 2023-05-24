@@ -9,6 +9,7 @@ pub struct EntersRequest {
 #[derive(Deserialize)]
 pub struct ExitsRequest {
     pub direction: u8,
+    pub enter: Option<String>,
 }
 
 #[derive(Serialize, FromRow)]
@@ -33,6 +34,7 @@ pub struct TollsRequest {
 
 pub enum ApiErrors {
     ValidationError(String),
+    SqlError(String),
 }
 
 #[derive(Deserialize, FromRow)]

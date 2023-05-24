@@ -1,7 +1,8 @@
 use sqlx::{sqlite::SqliteRow, Pool, Row, Sqlite};
 
 use crate::model::{
-    ApiErrors, CategoriesResponse, DirectionsResponse, FrontalStation, TollsCost, TollsRequest,
+    ApiErrors, CategoriesResponse, DirectionsResponse, ExitsRequest, FrontalStation, TollsCost,
+    TollsRequest,
 };
 
 pub async fn get_enters(direction: u8, db: &Pool<Sqlite>) -> Result<Vec<String>, sqlx::Error> {
@@ -16,16 +17,50 @@ pub async fn get_enters(direction: u8, db: &Pool<Sqlite>) -> Result<Vec<String>,
     Ok(result)
 }
 
-pub async fn get_exits(direction: u8, db: &Pool<Sqlite>) -> Result<Vec<String>, sqlx::Error> {
-    let result: Vec<String> = sqlx::query(
-        "SELECT s.name FROM exits e, stations s WHERE e.name_id == s.id AND e.direction_id = ?",
-    )
-    .bind(direction)
-    .map(|row: SqliteRow| row.get("name"))
-    .fetch_all(db)
-    .await?;
+pub async fn get_exits(request: ExitsRequest, db: &Pool<Sqlite>) -> Result<Vec<String>, ApiErrors> {
+    if let Some(enter) = request.enter {
+        // Check if Enter is valid
+        let row = sqlx::query("SELECT * FROM stations WHERE name = ?")
+            .bind(enter)
+            .fetch_one(db)
+            .await;
 
-    Ok(result)
+        let result = row.map_err(|_| {
+            ApiErrors::ValidationError(
+                "Enter not found. Check enter name provided in body payload.".to_string(),
+            )
+        })?;
+
+        let enter_order: i64 = result.get("order");
+
+        let sql_query: String = match request.direction {
+            1 => "SELECT s.name FROM exits e, stations s WHERE e.name_id == s.id AND e.direction_id = ? AND s.`order` > ?".to_string(),
+            2 => "SELECT s.name FROM exits e, stations s WHERE e.name_id == s.id AND e.direction_id = ? AND s.`order` < ?".to_string(),
+            _ => unreachable!(),
+        };
+
+        let row = sqlx::query(&sql_query)
+            .bind(request.direction)
+            .bind(enter_order)
+            .map(|row: SqliteRow| row.get("name"))
+            .fetch_all(db)
+            .await;
+
+        let result: Vec<String> = row.map_err(|e| ApiErrors::SqlError(e.to_string()))?;
+        return Ok(result);
+    } else {
+        let row = sqlx::query(
+            "SELECT s.name FROM exits e, stations s WHERE e.name_id == s.id AND e.direction_id = ?",
+        )
+        .bind(request.direction)
+        .map(|row: SqliteRow| row.get("name"))
+        .fetch_all(db)
+        .await;
+
+        let result: Vec<String> = row.map_err(|e| ApiErrors::SqlError(e.to_string()))?;
+
+        Ok(result)
+    }
 }
 
 pub async fn get_directions(db: &Pool<Sqlite>) -> Result<Vec<DirectionsResponse>, sqlx::Error> {
