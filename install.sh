@@ -38,8 +38,8 @@ if [ -f tolls.db3 ] && [ -f opass ] && [ -f opass.service ] && [ -f opass.conf ]
         sudo cp opass.service /usr/lib/systemd/system
         sudo systemctl start opass.service
         sudo systemctl enable opass.service
-	sudo cp opass.conf $NGINX_CONF_PATH
-	sudo nginx -s reload
+	    sudo cp opass.conf $NGINX_CONF_PATH
+	    sudo nginx -s reload
     fi
     rm opass
 else
