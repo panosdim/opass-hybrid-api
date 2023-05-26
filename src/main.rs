@@ -29,7 +29,7 @@ async fn main() -> io::Result<()> {
 
     HttpServer::new(move || {
         let cors = Cors::default()
-            .allowed_origin("http://localhost:5173, https://opass.dsw.mywire.org")
+            .allowed_origin("https://opass.dsw.mywire.org")
             .allowed_methods(vec!["GET", "POST", "PATCH", "DELETE"])
             .allowed_headers(vec![header::CONTENT_TYPE, header::ACCEPT]);
         App::new()
@@ -38,7 +38,7 @@ async fn main() -> io::Result<()> {
             .wrap(cors)
             .wrap(middleware::Logger::default())
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind(("127.0.0.1", 8004))?
     .run()
     .await
 }
