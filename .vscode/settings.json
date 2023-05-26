@@ -1,7 +1,9 @@
 {
     "cSpell.words": [
         "actix",
+        "Opass",
         "rowid",
+        "Serde",
         "sqlx"
     ],
     "rust-analyzer.linkedProjects": [

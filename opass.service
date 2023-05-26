@@ -1,0 +1,13 @@
+[Unit]
+Description=Script to start Opass REST API server
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=5s
+User=root
+WorkingDirectory=/opt/opass-hybrid
+ExecStart=/opt/opass-hybrid/opass
+
+[Install]
+WantedBy=multi-user.target
